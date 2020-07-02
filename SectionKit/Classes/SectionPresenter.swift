@@ -67,37 +67,37 @@ public protocol SectionPresentable: class {
 // MARK: - Default implementation
 extension SectionPresentable {
 
-    var id: Identifier {
+    public var id: Identifier {
         return ObjectIdentifier(self)
     }
 
-    func supplementaryType(for kind: SectionSupplementaryKind) -> SectionReusableViewType<UICollectionReusableView>? {
+    public func supplementaryType(for kind: SectionSupplementaryKind) -> SectionReusableViewType<UICollectionReusableView>? {
         return nil
     }
 
-    func configure(supplementaryView: UICollectionReusableView,
+    public func configure(supplementaryView: UICollectionReusableView,
                    kind: SectionSupplementaryKind,
                    at index: Int) { }
 
-    func sizeForSupplementary(of kind: SectionSupplementaryKind, contentWidth: CGFloat) -> SizeCalculation {
+    public func sizeForSupplementary(of kind: SectionSupplementaryKind, contentWidth: CGFloat) -> SizeCalculation {
         return .automatic
     }
 
-    func willDisplaySupplementary(supplementaryView: UICollectionReusableView,
+    public func willDisplaySupplementary(supplementaryView: UICollectionReusableView,
                                   kind: SectionSupplementaryKind,
                                   at index: Int) {}
 
-    func willDisplayCell(at index: Int) {}
+    public func willDisplayCell(at index: Int) {}
 
-    var insets: UIEdgeInsets {
+    public var insets: UIEdgeInsets {
         return .zero
     }
 
-    var minimumLineSpacing: CGFloat {
+    public var minimumLineSpacing: CGFloat {
         return 0
     }
 
-    var minimumInterItemSpacing: CGFloat {
+    public var minimumInterItemSpacing: CGFloat {
         return 0
     }
 

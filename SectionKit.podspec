@@ -8,7 +8,7 @@
 
 Pod::Spec.new do |s|
   s.name             = 'SectionKit'
-  s.version          = '0.1.0'
+  s.version          = '0.1.1'
   s.summary          = 'A modular fabric for interface. Based on UICollectionView, divided into sections'
 
   s.description      = <<-DESC
@@ -31,5 +31,5 @@ Pod::Spec.new do |s|
   s.source_files = 'SectionKit/Classes/**/*'
   
    s.frameworks = 'UIKit'
-   s.dependency 'UICollectionUpdates', '~> 0.1.1'
+   s.dependency 'UICollectionUpdates', '~> 0.1.2'
 end
