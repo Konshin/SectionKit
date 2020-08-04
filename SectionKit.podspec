@@ -31,5 +31,5 @@ Pod::Spec.new do |s|
   s.source_files = 'SectionKit/Classes/**/*'
   
    s.frameworks = 'UIKit'
-   s.dependency 'UICollectionUpdates', '~> 0.1.2'
+   s.dependency 'UICollectionUpdates', '~> 0.1.3'
 end
