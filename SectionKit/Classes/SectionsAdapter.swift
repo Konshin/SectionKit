@@ -56,8 +56,6 @@ public final class SectionsAdapter: NSObject {
     /// Ячейки для арсчета размера
     private var calculationSupplementaryViews: [CellId: UICollectionReusableView] = [:]
 
-    private var updateState: State = .idle
-
     // MARK: - constructors
 
     public init(collectionView: UICollectionView, viewController: UIViewController) {
@@ -417,83 +415,44 @@ extension SectionsAdapter {
     }
 
     public func endRefreshing() {
-        guard let collectionView = collectionView else { return }
+        guard let collectionView = collectionView, #available(iOS 10.0, *) else { return }
 
-        let action: Completion = { _ in
-            if #available(iOS 10.0, *) {
-                DispatchQueue.main.async {
-                    collectionView.refreshControl?.endRefreshing()
-                }
-            }
-            
-        }
-
-        switch updateState {
-        case .idle:
-            action(true)
-        case .updating(let pending, var completions):
-            completions.append(action)
-            self.updateState = .updating(pending: pending, completions: completions)
+        DispatchQueue.main.async {
+            collectionView.refreshControl?.endRefreshing()
         }
     }
     
     // MARK: private
 
     private func addUpdate(_ update: ReloadParameters, completions: [Completion]) {
-        DispatchQueue.main.async {
-            var paramsToUpdate: ReloadParameters?
-            switch self.updateState {
-            case .idle:
-                paramsToUpdate = update
-            case .updating(let pending, var pendingCompletions):
-                pendingCompletions += completions
-                self.updateState = .updating(pending: pending?.merge(with: update) ?? update, completions: pendingCompletions)
+        if let sections = update.newSections {
+            self.sections.forEach { $0.sectionsContext = nil }
+            self.sectionsMap.removeAll()
+            self.sections = sections
+            self.sections.enumerated().forEach { (index, section) in
+                self.sectionsMap[section.id] = index
+                section.sectionsContext = self
             }
+        }
 
-            if let parameters = paramsToUpdate {
-                self.updateState = .updating(pending: nil, completions: completions)
-
-                if let sections = parameters.newSections {
-                    self.sections.forEach { $0.sectionsContext = nil }
-                    self.sectionsMap.removeAll()
-                    self.sections = sections
-                    self.sections.enumerated().forEach { (index, section) in
-                        self.sectionsMap[section.id] = index
-                        section.sectionsContext = self
-                    }
-                }
-
-                let completion: (Bool) -> Void = { [weak self] finished in
-                    guard let self = self else { return }
-
-                    let previousState = self.updateState
-                    self.updateState = .idle
-                    if case .updating(let pending, let completions) = previousState {
-                        if let updates = pending {
-                            self.addUpdate(updates, completions: completions)
-                            return
-                        } else {
-                            completions.forEach {
-                                $0(finished)
-                            }
-                        }
-                    }
-                }
-
-                // Dont use animations when we are not in the window hierarchy
-                if parameters.fullReload || self.collectionView?.window == nil {
-                    CATransaction.begin()
-                    CATransaction.setValue(kCFBooleanTrue, forKey: kCATransactionDisableActions)
-                    self.collectionView?.reloadData()
-                    self.collectionView?.collectionViewLayout.invalidateLayout()
-                    self.collectionView?.layoutIfNeeded()
-                    CATransaction.commit()
-
-                    completion(true)
-                } else {
-                    self.collectionView?.performOrReload(updates: parameters.updates, with: Void(), completion: completion)
-                }
+        let completion: (Bool) -> Void = { finished in
+            completions.forEach {
+                $0(finished)
             }
+        }
+
+        // Dont use animations when we are not in the window hierarchy
+        if update.fullReload || self.collectionView?.window == nil {
+            CATransaction.begin()
+            CATransaction.setValue(kCFBooleanTrue, forKey: kCATransactionDisableActions)
+            self.collectionView?.reloadData()
+            self.collectionView?.collectionViewLayout.invalidateLayout()
+            self.collectionView?.layoutIfNeeded()
+            CATransaction.commit()
+
+            completion(true)
+        } else {
+            self.collectionView?.performOrReload(updates: update.updates, with: Void(), completion: completion)
         }
     }
 
