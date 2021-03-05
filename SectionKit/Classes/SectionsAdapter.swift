@@ -379,7 +379,9 @@ extension SectionsAdapter {
                 return l.id == r.id
             }
             
-            let batchUpdates = UICollectionUpdates(diff: diff)
+            var batchUpdates = UICollectionUpdates(diff: diff)
+            let reloads = UICollectionUpdates(reloadSections: IndexSet(0..<oldSections.count))
+            batchUpdates = batchUpdates.merge(with: reloads)
             updates = ReloadParameters(updates: batchUpdates)
         } else {
             updates = ReloadParameters(fullReload: true)
