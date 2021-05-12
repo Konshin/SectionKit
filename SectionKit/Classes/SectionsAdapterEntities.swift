@@ -141,9 +141,15 @@ public enum SectionReusableViewType<T: UICollectionReusableView> {
 }
 
 /// Type of calculation for Section View
-public enum SizeCalculation {
-    case automatic
+public enum SizeCalculation: Equatable {
+    /// Calculate height depends on width AutoLayout
+    /// If width is nil - the contentWidth will be used
+    case automaticHeight(width: CGFloat? = nil)
+    case automaticWidth(height: CGFloat)
     case specific(CGSize)
     
     public static let zero: SizeCalculation = .specific(.zero)
+    
+    @available(*, deprecated, message: "Use SizeCalculation.automaticHeight() instead")
+    public static let automatic = SizeCalculation.automaticHeight(width: nil)
 }

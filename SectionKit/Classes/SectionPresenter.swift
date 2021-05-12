@@ -62,6 +62,22 @@ public protocol SectionPresentable: class {
                                   kind: SectionSupplementaryKind,
                                   at index: Int)
 
+    // MARK: - UICollectionViewCompositionalLayout
+    
+    /// Layout description for UICollectionViewCompositionalLayout
+    /// If section didn't provide NSCollectionLayoutGroup, the layout will be calculated depending on other methods
+    /// - Parameter environment: Layout Environment
+    @available(iOS 13.0, *)
+    func compositionalLayoutGroup(environment: NSCollectionLayoutEnvironment) -> NSCollectionLayoutGroup?
+    
+    @available(iOS 13.0, *)
+    var orthogonalScrollingBehavior: UICollectionLayoutSectionOrthogonalScrollingBehavior { get }
+    
+    /// Custom section layout for UICollectionViewCompositionalLayout
+    /// - Parameter environment: Layout Environment
+    @available(iOS 13.0, *)
+    func compositionalLayoutCustomSection(environment: NSCollectionLayoutEnvironment) -> NSCollectionLayoutSection?
+
 }
 
 // MARK: - Default implementation
@@ -80,7 +96,7 @@ extension SectionPresentable {
                    at index: Int) { }
 
     public func sizeForSupplementary(of kind: SectionSupplementaryKind, contentWidth: CGFloat) -> SizeCalculation {
-        return .automatic
+        return .automaticHeight()
     }
 
     public func willDisplaySupplementary(supplementaryView: UICollectionReusableView,
@@ -99,6 +115,21 @@ extension SectionPresentable {
 
     public var minimumInterItemSpacing: CGFloat {
         return 0
+    }
+    
+    @available(iOS 13.0, *)
+    public func compositionalLayoutCustomSection(environment: NSCollectionLayoutEnvironment) -> NSCollectionLayoutSection? {
+        return nil
+    }
+    
+    @available(iOS 13.0, *)
+    public func compositionalLayoutGroup(environment: NSCollectionLayoutEnvironment) -> NSCollectionLayoutGroup? {
+        return nil
+    }
+    
+    @available(iOS 13.0, *)
+    public var orthogonalScrollingBehavior: UICollectionLayoutSectionOrthogonalScrollingBehavior {
+        return .none
     }
 
 }

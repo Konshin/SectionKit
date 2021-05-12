@@ -58,13 +58,13 @@ public final class SectionsAdapter: NSObject {
 
     // MARK: - constructors
 
-    public init(collectionView: UICollectionView, viewController: UIViewController) {
-        self.collectionView = collectionView
+    public init(collectionView: UICollectionView?, viewController: UIViewController) {
         self.viewController = viewController
         super.init()
-
-        collectionView.delegate = self
-        collectionView.dataSource = self
+        
+        if let collectionView = collectionView {
+            updateCollectionView(collectionView)
+        }
     }
 
     // MARK: - getters
@@ -79,11 +79,30 @@ public final class SectionsAdapter: NSObject {
         }
         return rect.origin
     }
+    
+    func section(at index: Int) -> SectionPresentable {
+        return sections[index]
+    }
 
     // MARK: - functions
 
     public func updateViewController(_ controller: UIViewController?) {
         viewController = controller
+    }
+    
+    public func updateCollectionView(_ collectionView: UICollectionView) {
+        if let previous = self.collectionView {
+            if previous.dataSource === self {
+                previous.dataSource = nil
+            }
+            if previous.delegate === self {
+                previous.delegate = nil
+            }
+        }
+        
+        self.collectionView = collectionView
+        collectionView.delegate = self
+        collectionView.dataSource = self
     }
 
     // MARK: - private functions
@@ -182,13 +201,13 @@ extension SectionsAdapter: UICollectionViewDataSource {
 
     public func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
         guard sections.count > section else { return 0 }
-        return sections[section].numberOfElements()
+        return self.section(at: section).numberOfElements()
     }
 
     public func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let sectionIndex = indexPath.section
         let itemIndex = indexPath.item
-        let section = sections[sectionIndex]
+        let section = self.section(at: sectionIndex)
         let type = section.cellType(at: itemIndex)
 
         let cellClass: UICollectionViewCell.Type = type.viewClass
@@ -221,7 +240,7 @@ extension SectionsAdapter: UICollectionViewDataSource {
     // MARK: supplementary
     
     public func collectionView(_ collectionView: UICollectionView, viewForSupplementaryElementOfKind kind: String, at indexPath: IndexPath) -> UICollectionReusableView {
-        let section = sections[indexPath.section]
+        let section = self.section(at: indexPath.section)
         
         guard let kindType = SectionSupplementaryKind(string: kind) else {
             return UICollectionReusableView()
@@ -241,7 +260,7 @@ extension SectionsAdapter: UICollectionViewDataSource {
 
     public func collectionView(_ collectionView: UICollectionView, willDisplaySupplementaryView view: UICollectionReusableView, forElementKind elementKind: String, at indexPath: IndexPath) {
         guard let kindType = SectionSupplementaryKind(string: elementKind) else { return }
-        let section = sections[indexPath.section]
+        let section = self.section(at: indexPath.section)
         section.willDisplaySupplementary(supplementaryView: view,
                                          kind: kindType,
                                          at: indexPath.item)
@@ -253,12 +272,12 @@ extension SectionsAdapter: UICollectionViewDataSource {
 extension SectionsAdapter: UICollectionViewDelegate {
 
     public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        let section = sections[indexPath.section]
+        let section = self.section(at: indexPath.section)
         section.select(at: indexPath.item)
     }
 
     public func collectionView(_ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
-        let section = sections[indexPath.section]
+        let section = self.section(at: indexPath.section)
         section.willDisplayCell(at: indexPath.item)
     }
 
@@ -268,22 +287,22 @@ extension SectionsAdapter: UICollectionViewDelegate {
 extension SectionsAdapter: UICollectionViewDelegateFlowLayout {
 
     public func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, insetForSectionAt section: Int) -> UIEdgeInsets {
-        let section = sections[section]
+        let section = self.section(at: section)
         return section.insets
     }
 
     public func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumLineSpacingForSectionAt section: Int) -> CGFloat {
-        let section = sections[section]
+        let section = self.section(at: section)
         return section.minimumLineSpacing
     }
 
     public func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumInteritemSpacingForSectionAt section: Int) -> CGFloat {
-        let section = sections[section]
+        let section = self.section(at: section)
         return section.minimumInterItemSpacing
     }
 
     public func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
-        let section = sections[indexPath.section]
+        let section = self.section(at: indexPath.section)
         let index = indexPath.item
         let insets = section.insets
         let contentWidth = collectionView.bounds.width - insets.left - insets.right
@@ -292,18 +311,34 @@ extension SectionsAdapter: UICollectionViewDelegateFlowLayout {
         switch sizeCalculation {
         case .specific(let size):
             return size
-        case .automatic:
+        case .automaticHeight(let width):
             let calculationCell = self.calculationCell(for: section.cellType(at: index), collectionView: collectionView)
             calculationCell.prepareForReuse()
             section.configure(cell: calculationCell, at: index)
             calculationCell.updateConstraints()
 
-            let size = calculationCell.contentView.systemLayoutSizeFitting(CGSize(width: contentWidth,
-                                                                                  height: UIView.layoutFittingCompressedSize.height),
-                                                                           withHorizontalFittingPriority: .required,
-                                                                           verticalFittingPriority: .fittingSizeLevel)
-
+            let size = calculationCell.contentView.systemLayoutSizeFitting(
+                CGSize(width: width ?? contentWidth,
+                       height: UIView.layoutFittingCompressedSize.height),
+                withHorizontalFittingPriority: .required,
+                verticalFittingPriority: .fittingSizeLevel
+            )
+            
             return CGSize(width: contentWidth, height: size.height.rounded(.up))
+        case .automaticWidth(let height):
+            let calculationCell = self.calculationCell(for: section.cellType(at: index), collectionView: collectionView)
+            calculationCell.prepareForReuse()
+            section.configure(cell: calculationCell, at: index)
+            calculationCell.updateConstraints()
+
+            let size = calculationCell.contentView.systemLayoutSizeFitting(
+                CGSize(width: UIView.layoutFittingCompressedSize.width,
+                       height: height),
+                withHorizontalFittingPriority: .fittingSizeLevel,
+                verticalFittingPriority: .required
+            )
+            
+            return CGSize(width: size.width.rounded(.up), height: height)
         }
     }
 
@@ -322,7 +357,7 @@ extension SectionsAdapter: UICollectionViewDelegateFlowLayout {
     private func sizeForSupplementary(_ kind: SectionSupplementaryKind,
                                       collectionView: UICollectionView,
                                       section: Int) -> CGSize {
-        let section = sections[section]
+        let section = self.section(at: section)
         guard let viewType = section.supplementaryType(for: kind) else {
             return .zero
         }
@@ -332,19 +367,36 @@ extension SectionsAdapter: UICollectionViewDelegateFlowLayout {
         switch sizeCalculation {
         case .specific(let size):
             return size
-        case .automatic:
+        case .automaticHeight(let width):
             let calculationView = self.calculationSupplementaryView(for: viewType,
                                                                     collectionView: collectionView)
             calculationView.prepareForReuse()
             section.configure(supplementaryView: calculationView, kind: kind, at: 0)
             calculationView.updateConstraintsIfNeeded()
 
-            let size = calculationView.systemLayoutSizeFitting(CGSize(width: contentWidth,
-                                                                      height: UIView.layoutFittingCompressedSize.height),
-                                                               withHorizontalFittingPriority: .required,
-                                                               verticalFittingPriority: .fittingSizeLevel)
-
+            let size = calculationView.systemLayoutSizeFitting(
+                CGSize(width: width ?? contentWidth,
+                       height: UIView.layoutFittingCompressedSize.height),
+                withHorizontalFittingPriority: .required,
+                verticalFittingPriority: .fittingSizeLevel
+            )
+            
             return CGSize(width: contentWidth, height: size.height.rounded(.up))
+        case .automaticWidth(let height):
+            let calculationView = self.calculationSupplementaryView(for: viewType,
+                                                                    collectionView: collectionView)
+            calculationView.prepareForReuse()
+            section.configure(supplementaryView: calculationView, kind: kind, at: 0)
+            calculationView.updateConstraintsIfNeeded()
+
+            let size = calculationView.systemLayoutSizeFitting(
+                CGSize(width: UIView.layoutFittingCompressedSize.width,
+                       height: height),
+                withHorizontalFittingPriority: .fittingSizeLevel,
+                verticalFittingPriority: .required
+            )
+            
+            return CGSize(width: size.width.rounded(.up), height: height)
         }
     }
 
