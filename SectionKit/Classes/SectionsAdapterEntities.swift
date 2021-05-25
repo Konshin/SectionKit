@@ -14,7 +14,7 @@ func className(_ class: AnyClass) -> String {
 }
 
 /// Источник данных для секций
-public protocol SectionsAdapterDataSource: class {
+public protocol SectionsAdapterDataSource: AnyObject {
 
     /// Список секций
     func sections() -> [SectionPresentable]
@@ -22,7 +22,7 @@ public protocol SectionsAdapterDataSource: class {
 }
 
 /// Протокол для связи секций и коллекции
-public protocol SectionsDisplayable: class {
+public protocol SectionsDisplayable: AnyObject {
 
     /// Получение ячейки по индексу
     func cellForItem(at index: Int, section: SectionPresentable) -> UICollectionViewCell?

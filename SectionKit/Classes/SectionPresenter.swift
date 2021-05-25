@@ -9,7 +9,7 @@
 import UIKit
 
 /// A section interface
-public protocol SectionPresentable: class {
+public protocol SectionPresentable: AnyObject {
 
     // MARK: - Nested types
 

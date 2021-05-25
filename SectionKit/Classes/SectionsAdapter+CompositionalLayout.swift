@@ -33,7 +33,7 @@ extension SectionsAdapter {
         if let described = section.compositionalLayoutGroup(environment: environment) {
             return described
         } else {
-            let contentWidth = environment.container.effectiveContentSize.width
+            let contentWidth = self.contentWidth(for: section, environment: environment)
             let layoutSize: NSCollectionLayoutSize
             if section.numberOfElements() > 0 {
                 let sizeType = section.sizeForCell(
@@ -133,6 +133,12 @@ extension SectionsAdapter {
                 heightDimension: .absolute(height)
             )
         }
+    }
+    
+    @available(iOS 13.0, *)
+    private func contentWidth(for section: SectionPresentable, environment: NSCollectionLayoutEnvironment) -> CGFloat {
+        let insets = section.insets
+        return environment.container.effectiveContentSize.width - insets.left - insets.right
     }
     
 }

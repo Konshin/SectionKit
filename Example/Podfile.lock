@@ -1,0 +1,23 @@
+PODS:
+  - SectionKit (0.2.1):
+    - UICollectionUpdates (~> 0.1.3)
+  - UICollectionUpdates (0.1.3)
+
+DEPENDENCIES:
+  - SectionKit (from `../`)
+
+SPEC REPOS:
+  trunk:
+    - UICollectionUpdates
+
+EXTERNAL SOURCES:
+  SectionKit:
+    :path: "../"
+
+SPEC CHECKSUMS:
+  SectionKit: 4164edd33501aba4724ae3abeca67a414a48f8b9
+  UICollectionUpdates: bfcdb93a5ed26b828460e77e79ce94227c29db01
+
+PODFILE CHECKSUM: 1354e76bdd7aeddd135cdd45a376d6fe31879315
+
+COCOAPODS: 1.10.0
