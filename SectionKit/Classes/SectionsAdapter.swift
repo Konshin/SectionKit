@@ -111,18 +111,15 @@ public final class SectionsAdapter: NSObject {
         return className(aClass)
     }
 
-    private func isCellRegistered(_ cellClass: UICollectionReusableView.Type) -> Bool {
-        let id = dequeueIdentifier(for: cellClass)
+    private func isCellRegistered(_ id: CellId) -> Bool {
         return registeredCellClasses.contains(id)
     }
 
-    private func isHeaderRegistered(_ cellClass: UICollectionReusableView.Type) -> Bool {
-        let id = dequeueIdentifier(for: cellClass)
+    private func isHeaderRegistered(_ id: CellId) -> Bool {
         return registeredHeaderClasses.contains(id)
     }
 
-    private func isFooterRegistered(_ cellClass: UICollectionReusableView.Type) -> Bool {
-        let id = dequeueIdentifier(for: cellClass)
+    private func isFooterRegistered(_ id: CellId) -> Bool {
         return registeredFooterClasses.contains(id)
     }
 
@@ -171,9 +168,9 @@ public final class SectionsAdapter: NSObject {
         let isRegistered: Bool
         switch kind {
         case .header:
-            isRegistered = isHeaderRegistered(aClass)
+            isRegistered = isHeaderRegistered(id)
         case .footer:
-            isRegistered = isFooterRegistered(aClass)
+            isRegistered = isFooterRegistered(id)
         }
         if !isRegistered {
             switch type {
@@ -186,6 +183,13 @@ public final class SectionsAdapter: NSObject {
                 collectionView?.register(nib,
                                          forSupplementaryViewOfKind: kind.value,
                                          withReuseIdentifier: id)
+            }
+            
+            switch kind {
+            case .header:
+                registeredHeaderClasses.insert(id)
+            case .footer:
+                registeredFooterClasses.insert(id)
             }
         }
     }
@@ -228,8 +232,9 @@ extension SectionsAdapter: UICollectionViewDataSource {
             }
         }
 
-        if !isCellRegistered(cellClass) {
+        if !isCellRegistered(reuseId) {
             registerAction(cellClass)
+            registeredCellClasses.insert(reuseId)
         }
 
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: reuseId, for: indexPath)
@@ -308,38 +313,10 @@ extension SectionsAdapter: UICollectionViewDelegateFlowLayout {
         let contentWidth = collectionView.bounds.width - insets.left - insets.right
 
         let sizeCalculation = section.sizeForCell(at: index, contentWidth: contentWidth)
-        switch sizeCalculation {
-        case .specific(let size):
-            return size
-        case .automaticHeight(let width):
-            let calculationCell = self.calculationCell(for: section.cellType(at: index), collectionView: collectionView)
-            calculationCell.prepareForReuse()
-            section.configure(cell: calculationCell, at: index)
-            calculationCell.updateConstraints()
-
-            let size = calculationCell.contentView.systemLayoutSizeFitting(
-                CGSize(width: width ?? contentWidth,
-                       height: UIView.layoutFittingCompressedSize.height),
-                withHorizontalFittingPriority: .required,
-                verticalFittingPriority: .fittingSizeLevel
-            )
-            
-            return CGSize(width: contentWidth, height: size.height.rounded(.up))
-        case .automaticWidth(let height):
-            let calculationCell = self.calculationCell(for: section.cellType(at: index), collectionView: collectionView)
-            calculationCell.prepareForReuse()
-            section.configure(cell: calculationCell, at: index)
-            calculationCell.updateConstraints()
-
-            let size = calculationCell.contentView.systemLayoutSizeFitting(
-                CGSize(width: UIView.layoutFittingCompressedSize.width,
-                       height: height),
-                withHorizontalFittingPriority: .fittingSizeLevel,
-                verticalFittingPriority: .required
-            )
-            
-            return CGSize(width: size.width.rounded(.up), height: height)
-        }
+        return self.calculateCellSize(type: sizeCalculation,
+                                      section: section,
+                                      index: index,
+                                      contentWidth: contentWidth)
     }
 
     public func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, referenceSizeForHeaderInSection section: Int) -> CGSize {
@@ -510,6 +487,49 @@ extension SectionsAdapter {
         }
     }
 
+}
+
+// MARK: - Internal
+extension SectionsAdapter {
+    
+    func calculateCellSize(type: SizeCalculation,
+                           section: SectionPresentable,
+                           index: Int,
+                           contentWidth: CGFloat) -> CGSize {
+        switch type {
+        case .specific(let size):
+            return size
+        case .automaticHeight(let width):
+            let calculationCell = self.calculationCell(for: section.cellType(at: index), collectionView: collectionView ?? UICollectionView())
+            calculationCell.prepareForReuse()
+            section.configure(cell: calculationCell, at: index)
+            calculationCell.updateConstraints()
+            
+            let size = calculationCell.contentView.systemLayoutSizeFitting(
+                CGSize(width: width ?? contentWidth,
+                       height: UIView.layoutFittingCompressedSize.height),
+                withHorizontalFittingPriority: .required,
+                verticalFittingPriority: .fittingSizeLevel
+            )
+            
+            return CGSize(width: contentWidth, height: size.height.rounded(.up))
+        case .automaticWidth(let height):
+            let calculationCell = self.calculationCell(for: section.cellType(at: index), collectionView: collectionView ?? UICollectionView())
+            calculationCell.prepareForReuse()
+            section.configure(cell: calculationCell, at: index)
+            calculationCell.updateConstraints()
+            
+            let size = calculationCell.contentView.systemLayoutSizeFitting(
+                CGSize(width: UIView.layoutFittingCompressedSize.width,
+                       height: height),
+                withHorizontalFittingPriority: .fittingSizeLevel,
+                verticalFittingPriority: .required
+            )
+            
+            return CGSize(width: size.width.rounded(.up), height: height)
+        }
+    }
+    
 }
 
 // MARK: - SectionsDisplayable

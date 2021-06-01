@@ -51,7 +51,11 @@ final class TestSection: SectionPresentable {
         if index % 3 == 0 {
             return .specific(CGSize(width: contentWidth * 0.2, height: 75))
         } else {
-            return .automaticHeight()
+            if #available(iOS 13, *) {
+                return .automaticWidth(height: 70)
+            } else {
+                return .automaticHeight()
+            }
         }
     }
     

@@ -28,36 +28,111 @@ extension SectionsAdapter {
     
     // MARK: private
     
+    private struct LayoutCalculation {
+        let frames: [CGRect]
+        let maxX: CGFloat
+        let maxY: CGFloat
+    }
+    
+    @available(iOS 13.0, *)
+    private func layoutCalculation(section: SectionPresentable, env: NSCollectionLayoutEnvironment) -> LayoutCalculation {
+        var originX: CGFloat = 0
+        var originY: CGFloat = 0
+        var lastItemLength: CGFloat = 0
+        var maxHeight: CGFloat = 0
+        
+        let isOrthogonal = section.orthogonalScrollingBehavior != .none
+        let sectionInsets = section.insets
+        let contentWidth = env.container.contentSize.width - sectionInsets.left - sectionInsets.right
+        
+        var frames = [CGRect]()
+        for idx in 0..<section.numberOfElements() {
+            let sizeCalculation = section.sizeForCell(at: idx, contentWidth: contentWidth)
+            let size = self.calculateCellSize(
+                type: sizeCalculation,
+                section: section,
+                index: idx,
+                contentWidth: contentWidth
+            )
+            if !isOrthogonal, originX > 0, size.width + originX > contentWidth {
+                originY += lastItemLength + section.minimumLineSpacing
+                originX = 0
+                lastItemLength = 0
+            }
+            let rect = CGRect(
+                x: originX,
+                y: originY,
+                width: size.width,
+                height: size.height
+            )
+            if isOrthogonal {
+                lastItemLength = max(lastItemLength, rect.width)
+                originX += rect.width + section.minimumLineSpacing
+                maxHeight = max(maxHeight, size.height)
+            } else {
+                lastItemLength = max(lastItemLength, rect.height)
+                originX += rect.width + section.minimumInterItemSpacing
+            }
+            frames.append(rect)
+        }
+        return LayoutCalculation(
+            frames: frames,
+            maxX: isOrthogonal ? (originX - section.minimumLineSpacing + sectionInsets.left + sectionInsets.right) : contentWidth,
+            maxY: isOrthogonal ? maxHeight : originY + lastItemLength
+        )
+    }
+    
     @available(iOS 13.0, *)
     private func layoutGroup(section: SectionPresentable, environment: NSCollectionLayoutEnvironment) -> NSCollectionLayoutGroup {
         if let described = section.compositionalLayoutGroup(environment: environment) {
             return described
         } else {
-            let contentWidth = self.contentWidth(for: section, environment: environment)
-            let layoutSize: NSCollectionLayoutSize
-            if section.numberOfElements() > 0 {
-                let sizeType = section.sizeForCell(
-                    at: 0,
-                    contentWidth: contentWidth
+            let isOrthogonal = section.orthogonalScrollingBehavior != .none
+            if isOrthogonal {
+                // Calculate via the first item
+                let contentWidth = self.contentWidth(for: section, environment: environment)
+                let layoutSize: NSCollectionLayoutSize
+                if section.numberOfElements() > 0 {
+                    let sizeType = section.sizeForCell(
+                        at: 0,
+                        contentWidth: contentWidth
+                    )
+                    layoutSize = self.layoutSize(from: sizeType)
+                } else {
+                    layoutSize = NSCollectionLayoutSize(
+                        widthDimension: .fractionalWidth(1),
+                        heightDimension: .estimated(1)
+                    )
+                }
+                let item = NSCollectionLayoutItem(
+                    layoutSize: layoutSize
                 )
-                layoutSize = self.layoutSize(from: sizeType)
+                
+                let groupSize = layoutSize
+                let group: NSCollectionLayoutGroup = NSCollectionLayoutGroup.horizontal(
+                    layoutSize: groupSize,
+                    subitems: [item]
+                )
+                group.interItemSpacing = .flexible(section.minimumInterItemSpacing)
+                return group
             } else {
-                layoutSize = NSCollectionLayoutSize(
-                    widthDimension: .fractionalWidth(1),
-                    heightDimension: .estimated(1)
+                let insets = section.insets
+                let calculation = layoutCalculation(section: section, env: environment)
+                let groupSize = NSCollectionLayoutSize(
+                    widthDimension: .absolute(
+                        calculation.maxX + insets.left + insets.right
+                    ),
+                    heightDimension: .absolute(
+                        calculation.maxY + insets.top + insets.bottom
+                    )
                 )
+                
+                return NSCollectionLayoutGroup.custom(layoutSize: groupSize) { [unowned self] env in
+                    return layoutCalculation(section: section, env: env).frames.map { frame in
+                        NSCollectionLayoutGroupCustomItem(frame: frame)
+                    }
+                }
             }
-            let item = NSCollectionLayoutItem(
-                layoutSize: layoutSize
-            )
-            
-            let groupSize = layoutSize
-            let group: NSCollectionLayoutGroup = NSCollectionLayoutGroup.horizontal(
-                layoutSize: groupSize,
-                subitems: [item]
-            )
-            group.interItemSpacing = .flexible(section.minimumInterItemSpacing)
-            return group
         }
     }
     
