@@ -21,11 +21,6 @@ public final class SectionsAdapter: NSObject {
 
     public typealias Completion = (Bool) -> Void
 
-    private enum State {
-        case idle
-        case updating(pending: ReloadParameters?, completions: [Completion])
-    }
-
     // MARK: - properties
 
     /// Источник данных по секциям
@@ -41,9 +36,7 @@ public final class SectionsAdapter: NSObject {
     // MARK: - private properties
 
     /// Список секций
-    private var sections: [SectionPresentable] = []
-    /// Связь секций и индекса в списке
-    private var sectionsMap: [SectionPresentable.Identifier: Int] = [:]
+    private(set) var data: SectionsData = SectionsData(groups: [])
 
     /// Зарегистрированные типы ячеек
     private var registeredCellClasses: Set<CellId> = []
@@ -70,7 +63,7 @@ public final class SectionsAdapter: NSObject {
     // MARK: - getters
 
     public func startPoint(for section: SectionPresentable) -> CGPoint? {
-        guard let sectionIndex = sectionsMap[section.id], let collectionView = collectionView else {
+        guard let sectionIndex = data.sectionsMap[section.id], let collectionView = collectionView else {
             return nil
         }
         let ip = IndexPath(item: 0, section: sectionIndex)
@@ -81,7 +74,31 @@ public final class SectionsAdapter: NSObject {
     }
     
     func section(at index: Int) -> SectionPresentable {
-        return sections[index]
+        return data.sections[index]
+    }
+    
+    @available(iOS 13, *)
+    func collectionUpdates(
+        oldSections: [SectionPresentable],
+        newSections: [SectionPresentable],
+        ignoreSectionReloads: [SectionPresentable.Identifier]
+    ) -> UICollectionUpdates {
+        let diff = newSections.difference(from: oldSections) { (l, r) -> Bool in
+            return l.id == r.id
+        }
+        
+        let batchUpdates = UICollectionUpdates(diff: diff)
+        var reloadIndices = Array(0..<oldSections.count)
+        if !ignoreSectionReloads.isEmpty {
+            let ignoreIds = Set(ignoreSectionReloads)
+            reloadIndices = reloadIndices.filter { sectionIndex in
+                !ignoreIds.contains(oldSections[sectionIndex].id)
+            }
+        }
+        let reloads = UICollectionUpdates(
+            reloadSections: IndexSet(reloadIndices)
+        )
+        return batchUpdates.merge(with: reloads)
     }
 
     // MARK: - functions
@@ -200,11 +217,11 @@ public final class SectionsAdapter: NSObject {
 extension SectionsAdapter: UICollectionViewDataSource {
 
     public func numberOfSections(in collectionView: UICollectionView) -> Int {
-        return sections.count
+        return data.sections.count
     }
 
     public func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        guard sections.count > section else { return 0 }
+        guard data.sections.count > section else { return 0 }
         return self.section(at: section).numberOfElements()
     }
 
@@ -394,53 +411,61 @@ extension SectionsAdapter: UIScrollViewDelegate {
 
 // MARK: - Reload logic
 extension SectionsAdapter {
-
-    public func reloadData(animated: Bool, completion: Completion? = nil) {
-        guard let dataSource = dataSource else {
-            return
-        }
-
-        let newSections = dataSource.sections()
-        var updates: ReloadParameters
-        if animated, #available(iOS 13, *) {
-            let oldSections = self.sections
-            let diff = newSections.difference(from: oldSections) { (l, r) -> Bool in
-                return l.id == r.id
-            }
-            
-            var batchUpdates = UICollectionUpdates(diff: diff)
-            let reloads = UICollectionUpdates(reloadSections: IndexSet(0..<oldSections.count))
-            batchUpdates = batchUpdates.merge(with: reloads)
-            updates = ReloadParameters(updates: batchUpdates)
-        } else {
-            updates = ReloadParameters(fullReload: true)
-        }
-        updates.setNewSections(newSections)
-
-        addUpdate(updates, completions: completion.flatMap { [$0] } ?? [])
+    
+    /// Perform animatable data reloading for the UICollectionView
+    /// - Parameters:
+    ///   - ignoreSections: Ignore some specific sections
+    ///   - completion: The completion handler
+    public func reloadAnimated(
+        ignoreSections: [SectionPresentable],
+        completion: Completion? = nil
+    ) {
+        performReload(
+            animated: true,
+            ignoreSections: ignoreSections,
+            completion: completion
+        )
+    }
+    
+    /// Perform data reloading for the UICollectionView
+    /// - Parameters:
+    ///   - animated: Use animation for reloading
+    ///   - completion: The completion handler
+    public func reloadData(
+        animated: Bool,
+        completion: Completion? = nil
+    ) {
+        performReload(
+            animated: animated,
+            ignoreSections: [],
+            completion: completion)
     }
 
-    public func performUpdates(_ updates: UICollectionSectionUpdates, section: SectionPresentable, completion: Completion?) {
-        guard let sectionIndex = sectionsMap[section.id] else {
+    public func performUpdates(
+        _ updates: UICollectionSectionUpdates,
+        section: SectionPresentable,
+        completion: Completion?
+    ) {
+        guard let sectionIndex = data.sectionsMap[section.id] else {
             return
         }
 
         var batchUpdates = UICollectionUpdates()
         batchUpdates = batchUpdates.update(with: updates, section: sectionIndex)
-        let reloadParams = ReloadParameters(updates: batchUpdates, fullReload: false)
+        let reloadParams = ReloadParameters(updates: batchUpdates, fullReload: false, animated: true)
         addUpdate(reloadParams, completions: completion.map { [$0] } ?? [])
     }
 
     public func reload(section: SectionPresentable, animated: Bool, completion: Completion? =  nil) {
-        guard let sectionIndex = sectionsMap[section.id] else {
+        guard let sectionIndex = data.sectionsMap[section.id] else {
             return
         }
         let reloadParams: ReloadParameters
         if animated {
             let update = UICollectionUpdates(reloadSections: [sectionIndex])
-            reloadParams = ReloadParameters(updates: update, fullReload: false)
+            reloadParams = ReloadParameters(updates: update, fullReload: false, animated: true)
         } else {
-            reloadParams = ReloadParameters(fullReload: true)
+            reloadParams = ReloadParameters(fullReload: true, animated: false)
         }
         addUpdate(reloadParams, completions: completion.flatMap { [$0] } ?? [])
     }
@@ -454,16 +479,68 @@ extension SectionsAdapter {
     }
     
     // MARK: private
+    
+    /// Start to reload the UICollectionView
+    /// - Parameters:
+    ///   - animated: Should use animation
+    ///   - ignoreSections: Sections ignored to reload (Only for animated relaoding)
+    ///   - completion: The completion handler
+    private func performReload(
+        animated: Bool,
+        ignoreSections: [SectionPresentable],
+        completion: Completion?
+    ) {
+        guard let dataSource = dataSource else {
+            completion?(false)
+            return
+        }
 
-    private func addUpdate(_ update: ReloadParameters, completions: [Completion]) {
-        if let sections = update.newSections {
-            self.sections.forEach { $0.sectionsContext = nil }
-            self.sectionsMap.removeAll()
-            self.sections = sections
-            self.sections.enumerated().forEach { (index, section) in
-                self.sectionsMap[section.id] = index
-                section.sectionsContext = self
+        let newGroups = dataSource.sectionGroups()
+        let mewData = SectionsData(groups: newGroups)
+        var updates: ReloadParameters
+        if animated, #available(iOS 13, *) {
+            let oldSections = self.data.sections
+            let diff = mewData.sections.difference(from: oldSections) { (l, r) -> Bool in
+                return l.id == r.id
             }
+            
+            var batchUpdates = UICollectionUpdates(diff: diff)
+            var reloadIndices = Array(0..<oldSections.count)
+            if !ignoreSections.isEmpty {
+                let ignoreIds = Set(ignoreSections.map { $0.id })
+                reloadIndices = reloadIndices.filter { sectionIndex in
+                    !ignoreIds.contains(oldSections[sectionIndex].id)
+                }
+            }
+            let reloads = UICollectionUpdates(
+                reloadSections: IndexSet(reloadIndices)
+            )
+            batchUpdates = batchUpdates.merge(with: reloads)
+            updates = ReloadParameters(updates: batchUpdates, animated: true)
+        } else {
+            updates = ReloadParameters(fullReload: true, animated: false)
+        }
+        updates.setDataUpdate(mewData)
+
+        addUpdate(updates, completions: completion.flatMap { [$0] } ?? [])
+    }
+
+    func addUpdate(_ update: ReloadParameters, completions: [Completion]) {
+        if let dataUpdate = update.dataUpdate {
+            self.data.sections
+                .filter { !dataUpdate.sectionIds.contains($0.id) }
+                .forEach { $0.sectionsContext = nil }
+            self.data.groups
+                .filter { !dataUpdate.groupIds.contains($0.id) }
+                .forEach { $0.sectionsContext = nil }
+            dataUpdate.groups
+                .filter { $0.sectionsContext !== self }
+                .forEach { $0.sectionsContext = self }
+            dataUpdate.sections
+                .filter { $0.sectionsContext !== self }
+                .forEach { $0.sectionsContext = self }
+            
+            self.data = dataUpdate
         }
 
         let completion: (Bool) -> Void = { finished in
@@ -483,7 +560,14 @@ extension SectionsAdapter {
 
             completion(true)
         } else {
-            self.collectionView?.performOrReload(updates: update.updates, with: Void(), completion: completion)
+            let action: () -> () = {
+                self.collectionView?.performOrReload(updates: update.updates, with: Void(), completion: completion)
+            }
+            if update.animated {
+                action()
+            } else {
+                UIView.performWithoutAnimation(action)
+            }
         }
     }
 
@@ -533,14 +617,14 @@ extension SectionsAdapter {
 }
 
 // MARK: - SectionsDisplayable
-extension SectionsAdapter: SectionsGroupDisplayable {
+extension SectionsAdapter: SectionsDisplayable {
 
     public var scrollView: UIScrollView? {
         return collectionView
     }
 
     public func cellForItem(at index: Int, section: SectionPresentable) -> UICollectionViewCell? {
-        guard let sectionIndex = sectionsMap[section.id] else {
+        guard let sectionIndex = data.sectionsMap[section.id] else {
             return nil
         }
         let indexPath = IndexPath(item: index, section: sectionIndex)
@@ -552,7 +636,7 @@ extension SectionsAdapter: SectionsGroupDisplayable {
     }
 
     public func updateLayout(section: SectionPresentable, at indexes: [Int]?) {
-        guard let sectionIndex = sectionsMap[section.id] else {
+        guard let sectionIndex = data.sectionsMap[section.id] else {
             return
         }
 
@@ -569,7 +653,7 @@ extension SectionsAdapter: SectionsGroupDisplayable {
     }
 
     public func scrollToItem(_ section: SectionPresentable, index: Int, at position: UICollectionView.ScrollPosition, animated: Bool) {
-        guard let sectionIndex = sectionsMap[section.id], let collectionView = collectionView else {
+        guard let sectionIndex = data.sectionsMap[section.id], let collectionView = collectionView else {
             return
         }
         let ip = IndexPath(item: index, section: sectionIndex)
@@ -581,7 +665,7 @@ extension SectionsAdapter: SectionsGroupDisplayable {
                                index: Int,
                                at position: UICollectionView.ScrollPosition,
                                animated: Bool) {
-        guard let sectionIndex = sectionsMap[section.id], let collectionView = collectionView else {
+        guard let sectionIndex = data.sectionsMap[section.id], let collectionView = collectionView else {
             return
         }
         let ip = IndexPath(item: index, section: sectionIndex)
@@ -614,18 +698,8 @@ extension SectionsAdapter: SectionsGroupDisplayable {
         collectionView.scrollRectToVisible(rectToScroll, animated: animated)
     }
 
-    public func performUpdates(_ updates: UICollectionUpdates, since firstSection: SectionPresentable) {
-        guard !updates.isEmpty, let sectionIndex = sectionsMap[firstSection.id], let dataSource = dataSource else {
-            return
-        }
-
-        let updates = updates.shiftIndexes(sectionsShift: sectionIndex)
-        let reloadParams = ReloadParameters(updates: updates, fullReload: false, newSections: dataSource.sections())
-        addUpdate(reloadParams, completions: [])
-    }
-
     public func rectForCell(at index: Int, section: SectionPresentable) -> CGRect? {
-        guard let sectionIndex = sectionsMap[section.id], let collectionView = collectionView, let attributes = collectionView.layoutAttributesForItem(at: IndexPath(item: index, section: sectionIndex)) else {
+        guard let sectionIndex = data.sectionsMap[section.id], let collectionView = collectionView, let attributes = collectionView.layoutAttributesForItem(at: IndexPath(item: index, section: sectionIndex)) else {
             return nil
         }
 
@@ -633,47 +707,11 @@ extension SectionsAdapter: SectionsGroupDisplayable {
     }
 
     public func rectForSupplementary(kind: SectionSupplementaryKind, index: Int, section: SectionPresentable) -> CGRect? {
-        guard let sectionIndex = sectionsMap[section.id], let collectionView = collectionView else {
+        guard let sectionIndex = data.sectionsMap[section.id], let collectionView = collectionView else {
             return nil
         }
         let ip = IndexPath(item: index, section: sectionIndex)
         return collectionView.layoutAttributesForSupplementaryElement(ofKind: kind.value, at: ip)?.frame
-    }
-
-}
-
-private struct ReloadParameters {
-
-    private(set) var updates: UICollectionUpdates = UICollectionUpdates()
-
-    private(set) var fullReload: Bool = false
-
-    private(set) var newSections: [SectionPresentable]?
-
-    mutating func addUpdates(_ updates: UICollectionUpdates) {
-        guard !fullReload else { return }
-
-        self.updates = self.updates.merge(with: updates)
-    }
-
-    mutating func setFullReload() {
-        updates = UICollectionUpdates()
-        fullReload = true
-    }
-
-    mutating func setNewSections(_ sections: [SectionPresentable]?) {
-        newSections = sections
-    }
-
-    func merge(with params: ReloadParameters) -> ReloadParameters {
-        let newSections = params.newSections ?? self.newSections
-        if fullReload || params.fullReload {
-            return ReloadParameters(updates: UICollectionUpdates(), fullReload: true, newSections: newSections)
-        }
-
-        return ReloadParameters(updates: updates.merge(with: params.updates),
-                                fullReload: false,
-                                newSections: newSections)
     }
 
 }

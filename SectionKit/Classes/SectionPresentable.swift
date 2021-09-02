@@ -1,5 +1,5 @@
 //
-//  SectionPresenter.swift
+//  SectionPresentable.swift
 //  SocialTrading
 //
 //  Created by akonshin on 07/01/2019.
