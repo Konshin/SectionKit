@@ -116,14 +116,13 @@ extension SectionsAdapter {
                 group.interItemSpacing = .flexible(section.minimumInterItemSpacing)
                 return group
             } else {
-                let insets = section.insets
                 let calculation = layoutCalculation(section: section, env: environment)
                 let groupSize = NSCollectionLayoutSize(
                     widthDimension: .absolute(
-                        calculation.maxX + insets.left + insets.right
+                        calculation.maxX
                     ),
                     heightDimension: .absolute(
-                        calculation.maxY + insets.top + insets.bottom
+                        calculation.maxY
                     )
                 )
                 
