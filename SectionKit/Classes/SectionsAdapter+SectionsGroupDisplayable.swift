@@ -37,7 +37,7 @@ public extension SectionsGroupDisplayable {
         ignoreSections: [SectionPresentable] = [],
         animated: Bool
     ) {
-        reloadGroup(group: group, ignoreSections: [], animated: animated, completion: nil)
+        reloadGroup(group: group, ignoreSections: ignoreSections, animated: animated, completion: nil)
     }
 
 }

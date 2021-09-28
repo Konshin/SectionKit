@@ -35,15 +35,17 @@ extension SectionsAdapter {
     }
     
     @available(iOS 13.0, *)
-    private func layoutCalculation(section: SectionPresentable, env: NSCollectionLayoutEnvironment) -> LayoutCalculation {
+    private func layoutCalculation(
+        section: SectionPresentable,
+        contentWidth: CGFloat,
+        env: NSCollectionLayoutEnvironment
+    ) -> LayoutCalculation {
+        let isOrthogonal = section.orthogonalScrollingBehavior != .none
+        
         var originX: CGFloat = 0
         var originY: CGFloat = 0
         var lastItemLength: CGFloat = 0
         var maxHeight: CGFloat = 0
-        
-        let isOrthogonal = section.orthogonalScrollingBehavior != .none
-        let sectionInsets = section.insets
-        let contentWidth = env.container.contentSize.width - sectionInsets.left - sectionInsets.right
         
         var frames = [CGRect]()
         for idx in 0..<section.numberOfElements() {
@@ -77,7 +79,7 @@ extension SectionsAdapter {
         }
         return LayoutCalculation(
             frames: frames,
-            maxX: isOrthogonal ? (originX - section.minimumLineSpacing + sectionInsets.left + sectionInsets.right) : contentWidth,
+            maxX: isOrthogonal ? (originX - section.minimumLineSpacing) : contentWidth,
             maxY: isOrthogonal ? maxHeight : originY + lastItemLength
         )
     }
@@ -116,7 +118,11 @@ extension SectionsAdapter {
                 group.interItemSpacing = .flexible(section.minimumInterItemSpacing)
                 return group
             } else {
-                let calculation = layoutCalculation(section: section, env: environment)
+                let calculation = layoutCalculation(
+                    section: section,
+                    contentWidth: self.contentWidth(for: section, environment: environment),
+                    env: environment
+                )
                 let groupSize = NSCollectionLayoutSize(
                     widthDimension: .absolute(
                         calculation.maxX
@@ -125,9 +131,9 @@ extension SectionsAdapter {
                         calculation.maxY
                     )
                 )
-                
-                return NSCollectionLayoutGroup.custom(layoutSize: groupSize) { [unowned self] env in
-                    return layoutCalculation(section: section, env: env).frames.map { frame in
+
+                return NSCollectionLayoutGroup.custom(layoutSize: groupSize) { _ in
+                    return calculation.frames.map { frame in
                         NSCollectionLayoutGroupCustomItem(frame: frame)
                     }
                 }

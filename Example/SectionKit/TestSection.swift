@@ -21,7 +21,7 @@ final class TestSection: SectionPresentable {
     }
     
     var insets: UIEdgeInsets {
-        return UIEdgeInsets(top: 8, left: 16, bottom: 12, right: 16)
+        return UIEdgeInsets(top: 40, left: 10, bottom: 20, right: 10)
     }
     
     @available(iOS 13.0, *)
