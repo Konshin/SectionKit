@@ -8,7 +8,7 @@
 
 Pod::Spec.new do |s|
   s.name             = 'SectionKit'
-  s.version          = '1.0.2'
+  s.version          = '1.0.3'
   s.summary          = 'A modular fabric for interface. Based on UICollectionView, divided into sections'
 
   s.description      = <<-DESC

@@ -10,13 +10,15 @@ import UICollectionUpdates
 
 /// An interfac to connect SectionsGroupPresentable and UICollectionView
 public protocol SectionsGroupDisplayable: SectionsScrollable {
-
+    
+    /// Perform updates for the specified group
     func performGroupUpdates(
         group: SectionsGroupPresentable,
         updates: UICollectionUpdates,
         completion: SectionsAdapter.Completion?
     )
     
+    /// Perform reloading for the specified group
     func reloadGroup(
         group: SectionsGroupPresentable,
         ignoreSections: [SectionPresentable],
@@ -62,7 +64,7 @@ extension SectionsAdapter: SectionsGroupDisplayable {
             dataUpdate: newData,
             animated: true
         )
-        addUpdate(reloadParams, completions: completion.map { [$0] } ?? [])
+        addUpdate(reloadParams, completions: completion.map { [$0] })
     }
     
     public func reloadGroup(
@@ -93,7 +95,7 @@ extension SectionsAdapter: SectionsGroupDisplayable {
         } else {
             reloadParams = ReloadParameters(fullReload: true, animated: false)
         }
-        addUpdate(reloadParams, completions: completion.map { [$0] } ?? [])
+        addUpdate(reloadParams, completions: completion.map { [$0] })
     }
     
 }

@@ -16,37 +16,45 @@ public final class SectionsAdapter: NSObject {
 
     // MARK: - Nested types
 
-    /// Тип для идентификатора ячейки
-    private typealias CellId = String
-
+    /// The reload completion type
     public typealias Completion = (Bool) -> Void
+    
+    /// The cell identifier
+    private typealias CellId = String
+    /// Current reloading state
+    private enum State {
+        case idle
+        case updating(Completion? = nil)
+    }
 
     // MARK: - properties
 
-    /// Источник данных по секциям
+    /// The data provider for SectionsAdapter
     public weak var dataSource: SectionsAdapterDataSource?
-    /// Делегация над скроллом UICollectionView
+    /// The methods declared by the UIScrollViewDelegate protocol allow the adopting delegate to respond to messages from the UICollectionView class and thus respond to, and in some affect, operations such as scrolling, zooming, deceleration of scrolled content, and scrolling animations.
     public weak var scrollDelegate: UIScrollViewDelegate?
 
-    /// Коллекшен вью
+    /// The collection view
     private weak var collectionView: UICollectionView?
     /// Коллекшен вью
     private(set) weak public var viewController: UIViewController?
+    
+    private var state: State = .idle
 
     // MARK: - private properties
 
-    /// Список секций
+    /// The data for dispalying
     private(set) var data: SectionsData = SectionsData(groups: [])
 
-    /// Зарегистрированные типы ячеек
+    /// The registered cell types
     private var registeredCellClasses: Set<CellId> = []
-    /// Зарегистрированные Хедеры
+    /// The registered header types
     private var registeredHeaderClasses: Set<CellId> = []
-    /// Зарегистрированные Футеры
+    /// The registered footer types
     private var registeredFooterClasses: Set<CellId> = []
-    /// Ячейки для арсчета размера
+    /// The cached cells for the calculation logic
     private var calculationCells: [CellId: UICollectionViewCell] = [:]
-    /// Ячейки для арсчета размера
+    /// The cached supplementary views for the calculation logic
     private var calculationSupplementaryViews: [CellId: UICollectionReusableView] = [:]
 
     // MARK: - constructors
@@ -453,7 +461,7 @@ extension SectionsAdapter {
         var batchUpdates = UICollectionUpdates()
         batchUpdates = batchUpdates.update(with: updates, section: sectionIndex)
         let reloadParams = ReloadParameters(updates: batchUpdates, fullReload: false, animated: true)
-        addUpdate(reloadParams, completions: completion.map { [$0] } ?? [])
+        addUpdate(reloadParams, completions: completion.map { [$0] })
     }
 
     public func reload(section: SectionPresentable, animated: Bool, completion: Completion? =  nil) {
@@ -467,7 +475,7 @@ extension SectionsAdapter {
         } else {
             reloadParams = ReloadParameters(fullReload: true, animated: false)
         }
-        addUpdate(reloadParams, completions: completion.flatMap { [$0] } ?? [])
+        addUpdate(reloadParams, completions: completion.map { [$0] })
     }
 
     public func endRefreshing() {
@@ -522,10 +530,22 @@ extension SectionsAdapter {
         }
         updates.setDataUpdate(mewData)
 
-        addUpdate(updates, completions: completion.flatMap { [$0] } ?? [])
+        addUpdate(updates, completions: completion.map { [$0] })
     }
 
-    func addUpdate(_ update: ReloadParameters, completions: [Completion]) {
+    func addUpdate(_ update: ReloadParameters, completions: [Completion]?) {
+        if case .updating(let previousCompletion) = state {
+            // wait for completion and reload fully
+            state = .updating { [weak self] _ in
+                var update = update
+                update.setFullReload()
+                self?.addUpdate(update, completions: (previousCompletion.map { [$0] } ?? []) + (completions ?? []))
+            }
+            return
+        } else {
+            state = .updating()
+        }
+        
         if let dataUpdate = update.dataUpdate {
             self.data.sections
                 .filter { !dataUpdate.sectionIds.contains($0.id) }
@@ -543,9 +563,14 @@ extension SectionsAdapter {
             self.data = dataUpdate
         }
 
-        let completion: (Bool) -> Void = { finished in
-            completions.forEach {
-                $0(finished)
+        let doCompletion: (Bool) -> Void = { [weak self] finished in
+            let currentState = self?.state
+            self?.state = .idle
+            
+            completions?.forEach { $0(finished) }
+            
+            if case .updating(let updateCompletion) = currentState {
+                updateCompletion?(finished)
             }
         }
 
@@ -558,10 +583,12 @@ extension SectionsAdapter {
             self.collectionView?.layoutIfNeeded()
             CATransaction.commit()
 
-            completion(true)
+            doCompletion(true)
         } else {
             let action: () -> () = {
-                self.collectionView?.performOrReload(updates: update.updates, with: Void(), completion: completion)
+                self.collectionView?.performOrReload(updates: update.updates, with: Void()) { result in
+                    doCompletion(result)
+                }
             }
             if update.animated {
                 action()
