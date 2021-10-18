@@ -585,9 +585,26 @@ extension SectionsAdapter {
 
             doCompletion(true)
         } else {
-            let action: () -> () = {
-                self.collectionView?.performOrReload(updates: update.updates, with: Void()) { result in
-                    doCompletion(result)
+            let action: () -> () = { [collectionView] in
+                if !update.updates.isEmpty {
+                    collectionView?.performOrReload(updates: update.updates, with: Void()) { result in
+                        doCompletion(result)
+                    }
+                } else if update.invalidateLayout {
+                    if let indexes = update.invalidateLayoutIndexes {
+                        collectionView?.performBatchUpdates(
+                            {
+                                let context = UICollectionViewFlowLayoutInvalidationContext()
+                                context.invalidateItems(at: indexes)
+                                collectionView?.collectionViewLayout.invalidateLayout(with: context)
+                            },
+                            completion: doCompletion
+                        )
+                    } else {
+                        collectionView?.collectionViewLayout.invalidateLayout()
+                    }
+                } else {
+                    doCompletion(true)
                 }
             }
             if update.animated {
@@ -667,16 +684,13 @@ extension SectionsAdapter: SectionsDisplayable {
             return
         }
 
+        var indexPathsToInvalidate: [IndexPath]?
         if let indexes = indexes {
-            collectionView?.performBatchUpdates({
-                let context = UICollectionViewFlowLayoutInvalidationContext()
-                context.invalidateItems(at: indexes.map { IndexPath(item: $0, section: sectionIndex) })
-                self.collectionView?.collectionViewLayout.invalidateLayout(with: context)
-            },
-                                                completion: nil)
-        } else {
-            collectionView?.collectionViewLayout.invalidateLayout()
+            indexPathsToInvalidate = indexes.map { IndexPath(item: $0, section: sectionIndex) }
         }
+        
+        let reloadParams = ReloadParameters(animated: true, invalidateLayout: true, invalidateLayoutIndexes: indexPathsToInvalidate)
+        addUpdate(reloadParams, completions: nil)
     }
 
     public func scrollToItem(_ section: SectionPresentable, index: Int, at position: UICollectionView.ScrollPosition, animated: Bool) {

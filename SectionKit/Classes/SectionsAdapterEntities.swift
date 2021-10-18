@@ -255,6 +255,10 @@ struct ReloadParameters {
     private(set) var dataUpdate: SectionsData?
     
     private(set) var animated: Bool
+    
+    private(set) var invalidateLayout: Bool = false
+    
+    private(set) var invalidateLayoutIndexes: [IndexPath]? = nil
 
     mutating func addUpdates(_ updates: UICollectionUpdates) {
         guard !fullReload else { return }
