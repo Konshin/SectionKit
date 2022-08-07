@@ -14,10 +14,11 @@ public protocol SectionsGroupPresentable: AnyObject {
     
     typealias Identifier = AnyHashable
     
+    /// Unique identifier
     var id: Identifier { get }
-
+    /// Reference for manage the collection
     var sectionsContext: SectionsGroupDisplayable? { get set }
-
+    /// List of sections to display
     var sections: [SectionPresentable] { get }
 
 }
