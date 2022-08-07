@@ -1,5 +1,5 @@
 //
-//  TestSection.swift
+//  SectionSection.swift
 //  SectionKit_Example
 //
 //  Created by Aleksei Konshin on 02.07.2020.
@@ -8,9 +8,9 @@
 
 import SectionKit
 
-final class TestSection: SectionPresentable {
+final class Section: SectionPresentable {
     
-    var sectionsContext: SectionsDisplayable?
+    weak var sectionsContext: SectionsDisplayable?
     
     var minimumInterItemSpacing: CGFloat {
         return 8

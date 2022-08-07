@@ -56,10 +56,16 @@ extension ViewController: SectionsAdapterDataSource {
     
     func sections() -> [SectionPresentable] {
         return (0..<5).map { _ in
-            TestSection()
+            Section()
         }
     }
     
+    func sectionGroups() -> [SectionsGroupPresentable] {
+        let sections = (0..<5).map { _ in
+            Section()
+        }
+        return [CommonSectionsGroupPresenter(sections)]
+    }
 }
 
 extension UIView {
