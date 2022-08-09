@@ -70,6 +70,7 @@ public protocol SectionPresentable: AnyObject {
     @available(iOS 13.0, *)
     func compositionalLayoutGroup(environment: NSCollectionLayoutEnvironment) -> NSCollectionLayoutGroup?
     
+    /// The section's scrolling behavior in relation to the main layout axis.
     @available(iOS 13.0, *)
     var orthogonalScrollingBehavior: UICollectionLayoutSectionOrthogonalScrollingBehavior { get }
     
@@ -77,6 +78,12 @@ public protocol SectionPresentable: AnyObject {
     /// - Parameter environment: Layout Environment
     @available(iOS 13.0, *)
     func compositionalLayoutCustomSection(environment: NSCollectionLayoutEnvironment) -> NSCollectionLayoutSection?
+    
+    /// An array of the decoration items that are anchored to the section, such as background decoration views.
+    /// - Parameter environment: Layout Environment
+    /// - Returns: Items
+    @available(iOS 13.0, *)
+    func compositionalLayoutDecorationItems(environment: NSCollectionLayoutEnvironment) -> [NSCollectionLayoutDecorationItem]?
 
 }
 
@@ -117,6 +124,8 @@ extension SectionPresentable {
         return 0
     }
     
+    // MARK: - UICollectionViewCompositionalLayout
+    
     @available(iOS 13.0, *)
     public func compositionalLayoutCustomSection(environment: NSCollectionLayoutEnvironment) -> NSCollectionLayoutSection? {
         return nil
@@ -132,4 +141,9 @@ extension SectionPresentable {
         return .none
     }
 
+    @available(iOS 13.0, *)
+    public func compositionalLayoutDecorationItems(environment: NSCollectionLayoutEnvironment) -> [NSCollectionLayoutDecorationItem]? {
+        return nil
+    }
+    
 }

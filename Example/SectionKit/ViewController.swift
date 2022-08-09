@@ -20,7 +20,9 @@ final class ViewController: UIViewController {
     private lazy var collectionView: UICollectionView = {
         let layout: UICollectionViewLayout
         if #available(iOS 13.0, *) {
-            layout = UICollectionViewCompositionalLayout(sectionProvider: sectionsAdapter.compositionalLayoutProvider())
+            let cLayout = UICollectionViewCompositionalLayout(sectionProvider: sectionsAdapter.compositionalLayoutProvider())
+            cLayout.register(BackgroundView.self, forDecorationViewOfKind: BackgroundView.reuseId)
+            layout = cLayout
         } else {
             layout = UICollectionViewFlowLayout()
         }
@@ -56,13 +58,13 @@ extension ViewController: SectionsAdapterDataSource {
     
     func sections() -> [SectionPresentable] {
         return (0..<5).map { _ in
-            Section()
+            Section(isOrthogonal: .random())
         }
     }
     
     func sectionGroups() -> [SectionsGroupPresentable] {
         let sections = (0..<5).map { _ in
-            Section()
+            Section(isOrthogonal: .random())
         }
         return [CommonSectionsGroupPresenter(sections)]
     }

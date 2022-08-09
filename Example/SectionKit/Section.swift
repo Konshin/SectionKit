@@ -11,6 +11,7 @@ import SectionKit
 final class Section: SectionPresentable {
     
     weak var sectionsContext: SectionsDisplayable?
+    let isOrthogonal: Bool
     
     var minimumInterItemSpacing: CGFloat {
         return 8
@@ -21,12 +22,11 @@ final class Section: SectionPresentable {
     }
     
     var insets: UIEdgeInsets {
-        return UIEdgeInsets(top: 40, left: 10, bottom: 20, right: 10)
+        return UIEdgeInsets(top: 40, left: 12, bottom: 20, right: 12)
     }
     
-    @available(iOS 13.0, *)
-    var orthogonalScrollingBehavior: UICollectionLayoutSectionOrthogonalScrollingBehavior {
-        return .continuous
+    init(isOrthogonal: Bool) {
+        self.isOrthogonal = isOrthogonal
     }
     
     func numberOfElements() -> Int {
@@ -51,7 +51,7 @@ final class Section: SectionPresentable {
         if index % 3 == 0 {
             return .specific(CGSize(width: contentWidth * 0.2, height: 75))
         } else {
-            if #available(iOS 13, *) {
+            if isOrthogonal, #available(iOS 13, *) {
                 return .automaticWidth(height: 70)
             } else {
                 return .automaticHeight()
@@ -76,6 +76,21 @@ final class Section: SectionPresentable {
         case .footer:
             view.label.text = "Footer"
         }
+    }
+    
+    // MARK: - UICollectionViewCompositionalLayout
+    
+    @available(iOS 13.0, *)
+    var orthogonalScrollingBehavior: UICollectionLayoutSectionOrthogonalScrollingBehavior {
+        return isOrthogonal ? .continuous : .none
+    }
+    
+    @available(iOS 13.0, *)
+    func compositionalLayoutDecorationItems(environment: NSCollectionLayoutEnvironment) -> [NSCollectionLayoutDecorationItem]? {
+        guard isOrthogonal else { return nil }
+        return [
+            NSCollectionLayoutDecorationItem.background(elementKind: BackgroundView.reuseId)
+        ]
     }
     
 }

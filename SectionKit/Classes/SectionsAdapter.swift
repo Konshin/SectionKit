@@ -108,6 +108,17 @@ public final class SectionsAdapter: NSObject {
         )
         return batchUpdates.merge(with: reloads)
     }
+    
+    /// Calculate available width for content
+    /// - Parameters:
+    ///   - collectionView: Container for content
+    ///   - sectionInsets: Insets for the section
+    /// - Returns: Available content width
+    private func contentWidth(collectionView: UICollectionView, sectionInset: UIEdgeInsets) -> CGFloat {
+        return collectionView.bounds.width
+        - sectionInset.left
+        - sectionInset.right
+    }
 
     // MARK: - functions
 
@@ -335,7 +346,7 @@ extension SectionsAdapter: UICollectionViewDelegateFlowLayout {
         let section = self.section(at: indexPath.section)
         let index = indexPath.item
         let insets = section.insets
-        let contentWidth = collectionView.bounds.width - insets.left - insets.right
+        let contentWidth = contentWidth(collectionView: collectionView, sectionInset: insets)
 
         let sizeCalculation = section.sizeForCell(at: index, contentWidth: contentWidth)
         return self.calculateCellSize(type: sizeCalculation,
@@ -364,7 +375,7 @@ extension SectionsAdapter: UICollectionViewDelegateFlowLayout {
             return .zero
         }
         let insets = section.insets
-        let contentWidth = collectionView.bounds.width - insets.left - insets.right
+        let contentWidth = self.contentWidth(collectionView: collectionView, sectionInset: insets)
         let sizeCalculation = section.sizeForSupplementary(of: kind, contentWidth: contentWidth)
         switch sizeCalculation {
         case .specific(let size):

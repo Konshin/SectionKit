@@ -7,6 +7,7 @@
 
 import UIKit
 
+// Support for UICollectionViewCompositionalLayout
 extension SectionsAdapter {
     
     /// Provider for UICollectionViewCompositionalLayout
@@ -157,6 +158,9 @@ extension SectionsAdapter {
                                             bottom: insets.bottom,
                                             trailing: insets.right)
         layoutSection.orthogonalScrollingBehavior = section.orthogonalScrollingBehavior
+        if let decorationItems = section.compositionalLayoutDecorationItems(environment: environment) {
+            layoutSection.decorationItems = decorationItems
+        }
         
         let contentWidth = environment.container.effectiveContentSize.width
         
